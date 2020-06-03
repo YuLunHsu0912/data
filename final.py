@@ -221,6 +221,7 @@ def color_splash(image, mask):
     mask: instance segmentation mask [height, width, instance count]
     Returns result image.
     """
+
     # Make a grayscale copy of the image. The grayscale copy still
     # has 3 RGB channels, though.
     gray = skimage.color.gray2rgb(skimage.color.rgb2gray(image)) * 255
@@ -231,68 +232,56 @@ def color_splash(image, mask):
     print("now shape=",now.shape)
     # We're treating all instances as one, so collapse the mask into one layer
     mask = (np.sum(mask, -1, keepdims=True) >= 1)
+    temp=np.copy(mask)
+    print("temp shape=",temp.shape)
     # Copy color pixels from the original color image where mask is set
     if mask.shape[0] > 0:
         splash = np.where(mask, image, now).astype(np.uint8)
     else:
         splash = now
-    return splash
+    mask=np.copy(mask)
+    l=mask.shape[1]
+    r=0
+    u=mask.shape[0]
+    d=0
+    for a in range(1,mask.shape[0]-1):
+      for b in range(1,mask.shape[1]-1):
+        if(mask[a][b]==0):
+          if(mask[a+1][b]==1 and a<u):
+              u=a
+          if(mask[a-1][b]==1 and a>d):
+              d=a
+          if(mask[a][b+1]==1 and b<l):
+              l=b
+          if(mask[a][b-1]==1 and b>r):
+              r=b
+    print("l,r,u,d=",l,r,u,d)
+    out=splash[u:d,l:r]
+    out=np.copy(out)
+    print("out shape",out.shape)
+    splash=np.copy(splash)
+    print("splash shape",splash.shape)
+    return out
 
 
 def detect_and_color_splash(model, image_path=None, video_path=None):
-    assert image_path or video_path
 
-    # Image or video?
-    if image_path:
         # Run model detection and generate the color splash effect
-        print("Running on {}".format(args.image))
+    print("Running on {}".format(args.image))
         # Read image
-        path="dataset/prediction/"
-        allFileList = os.listdir(path)
-        for file in allFileList:
-          now=path+file
-          image = skimage.io.imread(now)
+    path="dataset/prediction/"
+    allFileList = os.listdir(path)
+    for file in allFileList:
+      now=path+file
+      image = skimage.io.imread(now)
           # Detect objects
-          r = model.detect([image], verbose=1)[0]
+      r = model.detect([image], verbose=1)[0]
           # Color splash
-          splash = color_splash(image, r['masks'])
+      splash = color_splash(image, r['masks'])
           # Save output
-          file_name = now[-9:]
-          skimage.io.imsave(file_name, splash)
-    elif video_path:
-        import cv2
-        # Video capture
-        vcapture = cv2.VideoCapture(video_path)
-        width = int(vcapture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(vcapture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = vcapture.get(cv2.CAP_PROP_FPS)
-
-        # Define codec and create video writer
-        file_name = "splash_{:%Y%m%dT%H%M%S}.avi".format(datetime.datetime.now())
-        vwriter = cv2.VideoWriter(file_name,
-                                  cv2.VideoWriter_fourcc(*'MJPG'),
-                                  fps, (width, height))
-
-        count = 0
-        success = True
-        while success:
-            print("frame: ", count)
-            # Read next image
-            success, image = vcapture.read()
-            if success:
-                # OpenCV returns images as BGR, convert to RGB
-                image = image[..., ::-1]
-                # Detect objects
-                r = model.detect([image], verbose=0)[0]
-                # Color splash
-                splash = color_splash(image, r['masks'])
-                # RGB -> BGR to save image to video
-                splash = splash[..., ::-1]
-                # Add image to video writer
-                vwriter.write(splash)
-                count += 1
-        vwriter.release()
-    print("Saved to ", file_name)
+      file_name = now[-9:]
+      skimage.io.imsave(file_name, splash)
+      print("Saved to ", file_name)
 
 ############################################################
 #  Training
