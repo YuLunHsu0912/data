@@ -279,6 +279,8 @@ def detect_and_color_splash(model, image_path=None, video_path=None):
           # Color splash
       splash = color_splash(image, r['masks'])
           # Save output
+      if(splash.shape[0]==0 or splash.shape[1]==0):
+       splash=image
       file_name = now[-9:]
       skimage.io.imsave(file_name, splash)
       print("Saved to ", file_name)
